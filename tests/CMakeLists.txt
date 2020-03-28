@@ -6,4 +6,4 @@ project(CsvTesting)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_executable(out test.cpp)
+add_executable(csv_test main.cpp)
