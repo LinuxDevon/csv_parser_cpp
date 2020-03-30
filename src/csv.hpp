@@ -34,6 +34,11 @@
 
 #include <iostream>
 
+// -- DEFUALTS -- //
+#define DEFAULT_HEADER_ROW 0
+#define DEFAULT_LINE_DELIMITER ','
+#define DEFAULT_LINE_ENDING '\r\n'
+
 namespace String {
 
 template <class Container>
@@ -51,9 +56,37 @@ void Split(const std::string& str, Container& cont, char delim = ' ')
 
 namespace CSV {
 
+class Dialect {
+public:
+
+protected:
+	const char delimiter;
+	const bool doublequote;
+	const char escapechar;
+	const char lineending;
+	const char quotechar;
+	// const char quoting;
+	const bool skipinitialspace;
+	// const bool strict;
+private:
+
+};
+
+class Sniffer {
+public:
+	Dialect Sniff(const std::string filename, const char delimiters);
+	Dialect Sniff(const std::string filename);
+	bool	HasHeader(const std::string filename);
+protected:
+
+private:
+
+};
+
 class Parser {
 public:
-	Parser(const std::string filename_) noexcept(false) : FileName(filename_) {
+	// TODO: Make this pass in if it should throw
+	Parser(const std::string filename) noexcept(false) : FileName(filename) {
 		// Open the given file into a stream
 		InFile.open(FileName, std::ifstream::in);
 
@@ -71,7 +104,7 @@ public:
 
 	~Parser() {}
 
-	std::vector<std::string> HeaderColumnName() {
+	const std::vector<std::string> & HeaderColumnName() {
 		return HeaderNames;
 	}
 
@@ -83,6 +116,7 @@ protected:
 	std::ifstream InFile;       ///< The read only file of the input file name
 	unsigned HeaderRowNumber;   ///< The row number of the header in the file
 	std::vector<std::string> HeaderNames; ///< list of the header string names
+	bool HasRowHeader;			///< Indicates if a header row exsists
 
 private:
 
@@ -100,6 +134,20 @@ private:
 
 };
 
+class Reader : public Parser {
+public:
+	Reader(const std::string filename) noexcept(false) : Parser(filename) {
+
+	}
+
+	bool NextLine();
+
+protected:
+
+private:
+
+};
+
 /*class dict {
 public:
 	dict( void ) {}
@@ -108,7 +156,7 @@ protected:
 
 private:
 
-}*/
+};*/
 
 }
 
