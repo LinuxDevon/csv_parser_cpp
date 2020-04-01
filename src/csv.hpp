@@ -51,6 +51,33 @@ void Split(const std::string& str, Container& cont, char delim = ' ')
 	}
 }
 
+/**
+ * This is a safe non line ending specific getline function. This is to help with files
+ * carried over from different systems. i.e Unix file comes to Windows with LF endings
+ * instead of CRLF.
+ *
+ * @param  stream [description]
+ * @param  line   [description]
+ * @return        [description]
+ */
+std::istream & getline( std::istream & stream, std::string & line ) {
+	std::string newline;
+
+	std::getline( stream, newline );
+
+	// Windows CRLF (\r\n)
+	if ( newline.size() && newline[newline.size()-1] == '\r' ) {
+		line = newline.substr( 0, newline.size() - 1 );
+	// MacOS LF (\r)
+	} else if (newline.size() && newline[newline.size()] == '\r') {
+		line = newline.replace(newline.size(), 1, "\n");
+	} else {
+		line = newline;
+	}
+
+	return stream;
+}
+
 }
 
 
@@ -58,9 +85,10 @@ namespace CSV {
 
 class Dialect {
 public:
+	Dialect(const std::string delimiter, const bool doublequote, const char escapechar, const char lineending, const char quotechar, const bool skipinitialspace) :
+			delimiter(delimiter), doublequote(doublequote), escapechar(escapechar), lineending(lineending), quotechar(quotechar), skipinitialspace(skipinitialspace) {}
 
-protected:
-	const char delimiter;
+	const std::string delimiter;
 	const bool doublequote;
 	const char escapechar;
 	const char lineending;
@@ -68,27 +96,32 @@ protected:
 	// const char quoting;
 	const bool skipinitialspace;
 	// const bool strict;
+protected:
 private:
 
 };
 
 class Sniffer {
 public:
-	Dialect Sniff(const std::string filename, const char delimiters);
-	Dialect Sniff(const std::string filename);
-	bool	HasHeader(const std::string filename);
+	static Dialect Sniff(const std::string filename, const std::vector<char> delimiters = std::vector<char>{','} ) noexcept(false) {
+		CheckIfValidFile(filename);
+
+		return DetectDialect(filename, delimiters);
+	}
+
+	/*static bool HasHeader(const std::string filename) noexcept(false) {
+		Sniff(filename);
+
+		return false;
+	}*/
 protected:
 
 private:
 
-};
-
-class Parser {
-public:
-	// TODO: Make this pass in if it should throw
-	Parser(const std::string filename) noexcept(false) : FileName(filename) {
+	static void CheckIfValidFile(const std::string filename) {
 		// Open the given file into a stream
-		InFile.open(FileName, std::ifstream::in);
+		std::ifstream InFile;
+		InFile.open(filename, std::ios::in);
 
 		// Check file and throw if file is bad
 		if(InFile.bad()){
@@ -98,6 +131,36 @@ public:
 		} else if(InFile.eof()) {
 			throw std::invalid_argument("Error reading the given input file. End of file reached which means it was empty.");
 		}
+	}
+
+	static Dialect DetectDialect(const std::string filename, const std::vector<char> delimiters) {
+		// Open the given file into a stream
+		std::ifstream InFile;
+		std::string TempLine, delimiter;
+		char escapechar, lineending, quotechar;
+		InFile.open(filename, std::ios::in);
+
+		String::getline(InFile, TempLine);
+		// Identify the line ending for the file to parse with.
+		// WINDOWS - CRLF
+		if(TempLine[TempLine.size()-1] == '\r' && TempLine[TempLine.size()] == '\n') {
+			delimiter = "\r\n";
+		}
+
+		return Dialect(",", false, '\\', '\r', '"', true);
+	}
+
+};
+
+class Parser {
+public:
+	// TODO: Make this pass in if it should throw
+	Parser(const std::string filename) noexcept(false) : FileName(filename) {
+		Sniffer::Sniff(filename);	// Verify that the file is valid
+
+		// HasHeader = Sniffer::HasHeader(filename);
+
+		InFile.open(filename, std::ios::in);
 
 		HeaderRowNumber = FindHeaderRow();
 	}
@@ -108,6 +171,8 @@ public:
 		return HeaderNames;
 	}
 
+	// bool HasHeader() {return HasHeader;}
+
 protected:
 	// -- CONST VARIABLES -- //
 	const std::string FileName; ///< Name of the file to try and parse. This is given by the user
@@ -116,7 +181,7 @@ protected:
 	std::ifstream InFile;       ///< The read only file of the input file name
 	unsigned HeaderRowNumber;   ///< The row number of the header in the file
 	std::vector<std::string> HeaderNames; ///< list of the header string names
-	bool HasRowHeader;			///< Indicates if a header row exsists
+	// bool HasHeader;			///< Indicates if a header row exsists
 
 private:
 
@@ -124,8 +189,7 @@ private:
 		std::string temp_line;
 		// TODO: Assumed that the header was first. Need to add a finder to try and detect
 		// TODO: Add in a BOM Detection
-		// TODO: Check line ending to parse with. i.e. (CRLF, LF)(Unix, Dos, MacOS)
-		std::getline(InFile, temp_line);
+		String::getline(InFile, temp_line);
 
 		String::Split<std::vector<std::string>>(temp_line, HeaderNames, ',');
 
